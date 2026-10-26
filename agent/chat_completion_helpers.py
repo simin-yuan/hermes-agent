@@ -51,7 +51,8 @@ from agent.message_sanitization import (
 from agent.reasoning_summaries import (
     append_streamed_reasoning_detail, separate_glued_reasoning_blocks, streamed_reasoning_detail_text)
 from agent.local_prompt_progress import prompt_progress, with_prompt_progress
-from agent.repetition_guard import RunawayStreamWatch, is_repetition_dominated
+from agent.repetition_guard import (
+    DegenerateToolArgumentsError, RunawayStreamWatch, degenerate_retry_budget, is_repetition_dominated)
 from agent.stream_single_writer import claim_stream_writer, stream_writer_is_current
 from tools.terminal_tool_lifecycle import is_persistent_env
 from utils import base_url_host_matches, base_url_hostname, env_float, env_int
@@ -3584,6 +3585,8 @@ class _StreamingCall(StreamingWaitMonitor):
         _is_sse_conn_err = not _is_timeout and not _is_conn_err and _is_sse_connection_error(e)
         _is_transient = _is_timeout or _is_conn_err or _is_sse_conn_err or _is_stream_parse_err
 
+        _is_degenerate_args, max_retries = degenerate_retry_budget(e, max_retries)
+
         if not self.deltas_were_sent["yes"] and not getattr(self.agent, "_stream_options_unsupported", False) and _rejects_stream_options(e):
             # Nothing streamed yet: drop the usage extension for this session and re-open.
             self.agent._stream_options_unsupported = True
@@ -3628,6 +3631,11 @@ class _StreamingCall(StreamingWaitMonitor):
                          else "Provider returned an empty response stream after")
                 self.agent._buffer_diagnostic_status(
                     f"❌ {_what} {max_retries + 1} attempts. The provider may be experiencing issues — try again in a moment.")
+            elif _is_degenerate_args:
+                # The raise already carries DEGENERATE_ARGS_NOTICE; adding the connect notice here
+                # would print "the endpoint looks unreachable" about a stream that did connect — and
+                # would print it once per outer pass.
+                pass
             else:
                 from agent.stream_diag import buffer_connect_exhausted_notice
                 buffer_connect_exhausted_notice(self.agent, e, attempts=max_retries + 1, base_url=self.agent.base_url)

@@ -30,9 +30,10 @@ from agent.message_sanitization import (
 from agent.thinking_timeout_guidance import build_thinking_timeout_guidance, is_thinking_timeout
 from agent.vision_message_prep import _provider_model_key
 from agent.turn_failure_copy import (
-    CONTENT_POLICY_NEXT_STEPS, content_policy_copy, exhausted_copy, limit_reset_copy, nonretryable_copy,
-    provider_label_for, site_copy, stamp_failure,
+    CONTENT_POLICY_NEXT_STEPS, DEGENERATE_ARGS_REASON, content_policy_copy, exhausted_copy,
+    limit_reset_copy, nonretryable_copy, provider_label_for, site_copy, stamp_failure,
 )
+from agent.repetition_guard import DegenerateToolArgumentsError
 from agent.turn_retry_state import TurnRetryState
 from agent.turn_recovery_codex import _is_codex_token_expired, _recover_stale_codex_reasoning
 from hermes_constants import display_hermes_home
@@ -1252,8 +1253,15 @@ def max_retries_exhausted_result(
         # Every surface reads final_response (the 💡 lines above are CLI-only), so the chat
         # text carries the plain what-happened + next step itself.
         _reset_at = classified.error_context.get("reset_at")
+        # Whitespace-degenerate tool arguments are a model-output failure, not an outage; the
+        # exhausted copy must not tell the user the provider is down (#144745 follow-up).
+        _exhausted_reason = (
+            DEGENERATE_ARGS_REASON
+            if isinstance(api_error, DegenerateToolArgumentsError)
+            else classified.reason.value
+        )
         _final_response = exhausted_copy(
-            classified.reason.value, label=provider_label_for(provider), attempts=attempts,
+            _exhausted_reason, label=provider_label_for(provider), attempts=attempts,
             summary=_final_summary, reset_seconds=_reset_at - time.time() if _reset_at else None,
         )
         if _welcome_hint:

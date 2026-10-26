@@ -201,6 +201,13 @@ class RunawayStreamWatch:
 # streams it at ~100 chars/s forever: every delta is non-empty, so stall watchdogs count it as progress.
 TOOL_ARGS_WHITESPACE_LIMIT = 4096
 
+# What the user is told when the cut fires. The stream did open and deliver whitespace, so naming
+# a network fault here sends them to the wrong place; and no attempt count is quoted, because the
+# retry layers above decide how many attempts a turn actually spends.
+DEGENERATE_ARGS_NOTICE = (
+    "The model emitted a tool call whose arguments degenerated into whitespace; nothing was run — "
+    "retry, or ask for a smaller step.")
+
 
 class DegenerateToolArgumentsError(httpx.RemoteProtocolError):
     """The stream is unusable: a tool call's arguments turned into an endless whitespace run.
@@ -227,8 +234,7 @@ class ToolArgsWhitespaceWatch:
                 self._run += 1
                 self._raw_newline = self._raw_newline or ch in "\r\n"
                 if self._run >= TOOL_ARGS_WHITESPACE_LIMIT and (self._raw_newline or not self._in_string):
-                    raise DegenerateToolArgumentsError(
-                        f"tool-call arguments degenerated into {self._run} consecutive whitespace characters")
+                    raise DegenerateToolArgumentsError(DEGENERATE_ARGS_NOTICE)
                 continue
             self._run, self._raw_newline = 0, False
             if self._in_string:
@@ -240,3 +246,18 @@ class ToolArgsWhitespaceWatch:
                     self._in_string = False
             elif ch == '"':
                 self._in_string = True
+
+
+def degenerate_retry_budget(error: BaseException, max_retries: int) -> tuple[bool, int]:
+    """How many times a degenerate-arguments abort is worth retrying.
+
+    The abort is raised as an ``httpx.RemoteProtocolError`` so each wire's stream retry
+    reopens the request, but it is not a network fault: resending is the only lever, and
+    each resend is a fresh sample. One resend covers the case where the loop was an
+    accident of sampling; three pay for two more streams that mostly repeat it, and the
+    spend lands after a turn the user already waited on. Returns ``(is_degenerate, budget)``
+    so the caller can pick the right exhausted-notice.
+    """
+    if isinstance(error, DegenerateToolArgumentsError):
+        return True, min(max_retries, 1)
+    return False, max_retries

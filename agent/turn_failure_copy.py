@@ -203,6 +203,15 @@ _EXHAUSTED_LEADS: dict[str, str] = {
     FailoverReason.timeout.value: "{label} didn't respond in time on any of {attempts} attempts",
 }
 _EXHAUSTED_DEFAULT_LEAD = "{label} didn't answer after {attempts} attempts"
+# A whitespace-only tool call is the model's own output, not a provider outage: naming the provider
+# as unavailable here sends the user to a wait-and-resend loop, when what helps is changing the
+# request. A resend is a fresh sample and usually does recover (upstream measures ~1% per request),
+# so the copy asks for one thing that actually changes the input instead of claiming a resend is futile.
+DEGENERATE_ARGS_REASON = "degenerate_tool_args"
+_DEGENERATE_ARGS_SITUATION = (
+    "nothing was run. Sending the same request again is unlikely to help: "
+    "ask for a smaller step, or switch models with /model."
+)
 # One attempt: an attended free-tier session ended the cycle on a cooldown longer than it waits.
 _EXHAUSTED_FIRST_ATTEMPT_LEADS: dict[str, str] = {
     FailoverReason.rate_limit.value: "{label} is rate-limiting requests right now",
@@ -399,6 +408,16 @@ def exhausted_copy(reason: str, *, label: str, attempts: int, summary: str, rese
     """Chat copy once retries + fallback are exhausted (``max_retries_exhausted_result``). A rate
     limit whose reset window is known names it: an 8.6h plan quota is not "wait a minute" (#89401)."""
     first_attempt = attempts == 1 and reason in _EXHAUSTED_FIRST_ATTEMPT_LEADS
+    if reason == DEGENERATE_ARGS_REASON:
+        # Same shape as the outage copy below (lead — situation) so the last line the user reads
+        # names the real cause instead of the provider.
+        # No attempt count here: the retry layers decide how many requests a turn really makes,
+        # so any number printed in this copy can disagree with what the user's provider saw.
+        # The subject is the model, not the provider: the arguments are model output, and naming
+        # the provider here would contradict the very point this copy exists to make. "whose
+        # arguments degenerated into" also covers the real shape (a normal opening, then the
+        # degeneration), which "made only of whitespace" did not.
+        return (f"The model sent a tool call whose arguments degenerated into whitespace — {_DEGENERATE_ARGS_SITUATION}")
     lead = (_EXHAUSTED_FIRST_ATTEMPT_LEADS if first_attempt else _EXHAUSTED_LEADS).get(
         reason, _EXHAUSTED_DEFAULT_LEAD).format(label=label, attempts=attempts)
     # The free-tier cutoff (one attempt) fires on any cooldown over a minute, so it always names the reset.
