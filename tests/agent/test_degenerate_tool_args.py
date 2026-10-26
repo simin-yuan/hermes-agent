@@ -26,9 +26,9 @@ def _chat_delta(args):
 
 
 RUNAWAY = ['{"command": "ls"'] + [" \n \n"] * 2000
-# 200 KiB of real content: long space runs inside a JSON string stay below the limit.
-BIG_OK = [json.dumps({"command": "echo " + ("x" * 60 + " " * 3000) * 60})[i:i + 512]
-          for i in range(0, 190_000, 512)]
+# 300 KiB of real content: 5,000-space runs inside a JSON string are content, not a runaway.
+BIG_OK = [json.dumps({"command": "echo " + ("x" * 60 + " " * 5000) * 60})[i:i + 512]
+          for i in range(0, 310_000, 512)]
 
 
 def test_whitespace_runaway_aborts_both_wires():

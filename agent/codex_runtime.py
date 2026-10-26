@@ -20,7 +20,7 @@ from agent.transports.hermes_tools_mcp_server import HERMES_TOOLS_MCP_SERVER_NAM
 from agent.sdk_transform_bypass import bypass_sdk_request_transform
 from agent.stream_diag import buffer_connect_exhausted_notice
 from agent.usage_anchor import set_usage_anchor
-from agent.repetition_guard import trailing_whitespace_run
+from agent.repetition_guard import ToolArgsWhitespaceWatch
 
 logger = logging.getLogger(__name__)
 _codex_watchdog_state_var: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
@@ -991,7 +991,7 @@ class _CodexResponseAssembler:
             delta = _event_field(event, "delta", "") or ""
             pending["arguments"] += delta
             if self.abort_degenerate_args:
-                pending["ws_run"] = trailing_whitespace_run(delta, pending.get("ws_run", 0))
+                pending.setdefault("ws_watch", ToolArgsWhitespaceWatch()).feed(delta)
         elif event_type.endswith("function_call_arguments.done"):
             # Authoritative for the accumulated string; an explicit "" (zero-arg call) counts, only a
             # missing field keeps the streamed deltas.
