@@ -12,6 +12,8 @@ from __future__ import annotations
 import math
 from collections import Counter
 
+import httpx
+
 # Below this length the check doesn't run: short truncations trivially
 # contain repeated tokens and are legitimately continued.
 MIN_FRAGMENT_LENGTH = 400
@@ -192,3 +194,25 @@ class RunawayStreamWatch:
         tail = "".join(self._parts)[-_STREAM_TAIL_CHARS:]
         self._parts = [tail]
         return is_runaway_repetition(tail)
+
+
+# Tool-call argument JSON escapes newlines inside strings, so a legitimate call never streams a
+# 4 KiB run of raw whitespace. A runaway one (seen on ~1% of OpenAI Responses requests) streams it at
+# ~100 chars/s forever: every delta is non-empty, so stall watchdogs count it as progress.
+TOOL_ARGS_WHITESPACE_LIMIT = 4096
+
+
+class DegenerateToolArgumentsError(httpx.RemoteProtocolError):
+    """The stream is unusable: a tool call's arguments turned into an endless whitespace run.
+    A transport error, so each wire's stream retry reopens the request; the partial call never runs."""
+
+
+def trailing_whitespace_run(delta: str, previous: int = 0) -> int:
+    """Length of the whitespace run ending ``delta``, continuing ``previous`` when ``delta`` is all
+    whitespace. Raises :class:`DegenerateToolArgumentsError` at ``TOOL_ARGS_WHITESPACE_LIMIT``."""
+    tail = len(delta) - len(delta.rstrip())
+    run = previous + tail if tail == len(delta) else tail
+    if run >= TOOL_ARGS_WHITESPACE_LIMIT:
+        raise DegenerateToolArgumentsError(
+            f"tool-call arguments degenerated into {run} consecutive whitespace characters")
+    return run

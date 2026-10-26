@@ -20,6 +20,7 @@ from agent.transports.hermes_tools_mcp_server import HERMES_TOOLS_MCP_SERVER_NAM
 from agent.sdk_transform_bypass import bypass_sdk_request_transform
 from agent.stream_diag import buffer_connect_exhausted_notice
 from agent.usage_anchor import set_usage_anchor
+from agent.repetition_guard import trailing_whitespace_run
 
 logger = logging.getLogger(__name__)
 _codex_watchdog_state_var: contextvars.ContextVar[Any | None] = contextvars.ContextVar(
@@ -890,6 +891,8 @@ class _CodexResponseAssembler:
     # An assistant answer message item was announced (output_item.added, not commentary/analysis): its text deltas
     # are real answer text even when its done event never arrives. Bare output_text deltas carry no such proof.
     saw_answer_item_added = False
+    # Live consumption only: Relay's finalizer replays the same frames and must not raise again.
+    abort_degenerate_args = False
 
     def __init__(self, *, model, on_text_delta, on_reasoning_delta, on_commentary_message, on_first_delta):
         self.model, self.on_text_delta, self.on_reasoning_delta = model, on_text_delta, on_reasoning_delta
@@ -985,7 +988,10 @@ class _CodexResponseAssembler:
         if pending is None:
             return  # the item itself lands on output_item.done
         if "delta" in event_type:
-            pending["arguments"] += _event_field(event, "delta", "") or ""
+            delta = _event_field(event, "delta", "") or ""
+            pending["arguments"] += delta
+            if self.abort_degenerate_args:
+                pending["ws_run"] = trailing_whitespace_run(delta, pending.get("ws_run", 0))
         elif event_type.endswith("function_call_arguments.done"):
             # Authoritative for the accumulated string; an explicit "" (zero-arg call) counts, only a
             # missing field keeps the streamed deltas.
@@ -1138,7 +1144,7 @@ class _CodexResponseAssembler:
 
 def _consume_codex_event_stream(
     event_iter: Any, *, model: str, on_text_delta=None, on_reasoning_delta=None, on_commentary_message=None,
-    on_first_delta=None, on_event=None, interrupt_check=None,
+    on_first_delta=None, on_event=None, interrupt_check=None, abort_degenerate_args=False,
 ) -> SimpleNamespace:
     """Consume a Codex Responses SSE stream into a Response-shaped ``SimpleNamespace`` (see
     :class:`_CodexResponseAssembler`; ``status`` is ``completed`` when the stream ended with content but no
@@ -1159,6 +1165,7 @@ def _consume_codex_event_stream(
                                         on_commentary_message=on_commentary_message, on_first_delta=on_first_delta)
     text_watch, reasoning_watch = RunawayStreamWatch(), RunawayStreamWatch()
     runaway = None
+    assembler.abort_degenerate_args = abort_degenerate_args
     for event in event_iter:
         if on_event is not None:
             try:
@@ -1451,6 +1458,7 @@ def run_codex_stream(agent, api_kwargs: dict, client: Any = None, on_first_delta
                     on_reasoning_delta=_live(agent._fire_reasoning_delta), on_commentary_message=on_commentary_message,
                     on_first_delta=_live(on_first_delta) if on_first_delta is not None else None,
                     on_event=_fenced(_on_event), interrupt_check=_interrupt_or_superseded,
+                    abort_degenerate_args=True,
                 )
             except transport_errors as exc:
                 if attempt >= max_stream_retries:

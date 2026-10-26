@@ -3,6 +3,7 @@
 from typing import Optional
 
 from agent.reasoning_carriers import field
+from agent.repetition_guard import trailing_whitespace_run
 
 
 class _ToolCallAccumulator:
@@ -11,7 +12,10 @@ class _ToolCallAccumulator:
     for every call in a parallel batch, distinguishing them only by id, so a new
     id at an already-seen raw index is redirected to a fresh slot."""
 
-    def __init__(self):
+    def __init__(self, *, abort_degenerate_args: bool = False):
+        # Live stream only (Relay's accumulator replays observed chunks and must not raise).
+        self._abort_degenerate_args = abort_degenerate_args
+        self._ws_run: dict[int, int] = {}
         self.acc: dict = {}
         self._notified: set = set()
         self._last_id_at_idx: dict = {}      # raw_index -> last seen non-empty id
@@ -98,6 +102,8 @@ class _ToolCallAccumulator:
                 entry["function"]["name"] = tc_function.name
             if getattr(tc_function, "arguments", None):
                 parts.append(tc_function.arguments)
+                if self._abort_degenerate_args:
+                    self._ws_run[idx] = trailing_whitespace_run(tc_function.arguments, self._ws_run.get(idx, 0))
             # Some gateways sign Gemini 3 calls inside ``function``.
             if isinstance(fn_sig := field(tc_function, "thought_signature"), str) and fn_sig:
                 entry["thought_signature"] = fn_sig
