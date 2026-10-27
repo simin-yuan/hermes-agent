@@ -1,20 +1,22 @@
 name: provenance-gate
 title: Provenance Gate
 repo: https://github.com/simin-yuan/hermes-provenance-gate
-sha: d8ded75deef198694639d8653c1834a26f3b0372
-version: "0.1.3"
+sha: 4e1bbafc6f64a240a0775e0f0ad7944d2a0c11e0
+version: "0.1.5"
 description: >-
   Flags memory and skill_manage writes that state a user decision ("the user decided ...", "用户决定 ...")
   without the user's own words: each such sentence needs a quote that appears verbatim in text the user
   typed in this session, shares key words with the decision and does not drop a negation. A patch is
-  checked by the text it produces. Observe mode (the default) records flagged writes and `hermes
-  provenance-gate report` lists them; block mode refuses them and tells the model how to fix the write.
+  checked by the text it produces. Three modes: observe (the default) records flagged writes and `hermes
+  provenance-gate report` lists them; ask escalates them to Hermes' approval gate with rule_key
+  provenance-gate:<reason>, so answering "always" stops the prompts for one class of finding rather than
+  for every write from this plugin; block refuses them and tells the model how to fix the write.
   Measured on an independent blind set of 133 lines: precision 1.000, recall 0.694.
   Disclosure — two hooks (pre_llm_call, pre_tool_call); keeps a local copy of the text the user types,
   with its sender_id and session link, and an evidence log of checked claims under
   plugin-data/provenance-gate (30-day default retention, `hermes provenance-gate purge`); reads
-  MEMORY.md, USER.md and skill files to reproduce what a patch produces; no network, no credentials,
-  never asks for approval.
+  MEMORY.md, USER.md and skill files to reproduce what a patch produces; no network, no credentials;
+  escalates to the approval gate only in ask mode, and never refuses anything in observe mode.
 maintainer: simin-yuan
 tier: community
 category: general
