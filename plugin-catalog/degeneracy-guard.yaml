@@ -1,8 +1,8 @@
 name: degeneracy-guard
 repo: https://github.com/simin-yuan/hermes-degeneracy-guard
-sha: ffc28d0ab9ac6b6c0cbb118ed5fb0c06909a3dc1
-version: "1.3.0"
-description: Asks the user to confirm a tool call whose arguments look like a repetition loop rather than data, through Hermes' approval gate (denied or unanswered means refused); replaces flagged degenerate output with a short notice; warns when a session grows long. Disclosure — no network, shell, subprocesses, own threads, telemetry or credentials; writes incident records and a session counter to its plugin data directory; a stream-side record keeps the last 800 characters of flagged output.
+sha: 516e69860e75272129e6eb657b38367ece0838f6
+version: "1.4.0"
+description: Asks the user to confirm a tool call whose arguments look like a repetition loop rather than data, through Hermes' approval gate (denied or unanswered means refused); replaces flagged degenerate output with a short notice; warns when a session grows long. Two modes, DEGENERACY_GUARD_MODE=observe|act — a fresh install starts in observe, which runs the same detection and writes the same incident record but replaces nothing and asks nothing; an install that has already recorded an incident keeps act on upgrade, so a protection the user chose is never silently removed. Disclosure — no network, shell, subprocesses, own threads, telemetry or credentials; writes incident records and a session counter to its plugin data directory; a stream-side record keeps the last 800 characters of flagged output.
 maintainer: simin-yuan
 tier: community
 category: general
