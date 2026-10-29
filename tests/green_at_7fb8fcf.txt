@@ -1,0 +1,42 @@
+▶ environment missing or stale for $REPO — re-running under run-in-hermes-env
+
+[0;36m☤ Hermes Agent Setup[0m
+
+[0;36m→[0m Checking for uv...
+[0;32m✓[0m pinned uv found (uv 0.13.5 (x86_64-unknown-linux-gnu))
+[0;36m→[0m Installing python + tools + dependencies via pm (hash-verified via uv.lock)...
+[0;36m→[0m (first run on a fresh checkout can take 1-5 minutes)
+Python 3.14 is already installed
+✓ ffmpeg
+✓ node
+✓ npm
+✓ python
+✓ ripgrep
+✓ venv
+  → Resolving Python dependencies…
+  ✓ Resolving Python dependencies
+✓ test environment
+✓ chromium
+✓ cua-driver
+[0;32m✓[0m Tools + dependencies installed (hash-verified via pm + uv.lock)
+▶ running per-file parallel test suite via run_tests_parallel.py
+  (TZ=UTC LANG=C.UTF-8 PYTHONHASHSEED=0; clean env)
+▶ pre-compiling bytecode cache
+▶ launching test runner
+Discovered 3 test files (~6 tests) under ['tests/agent/test_degenerate_tool_args_native_wires.py', 'tests/agent/test_degenerate_tool_args.py', 'tests/agent/test_bedrock_stream_completion.py']; running with -j 4
+[ 33.3% |     2/~6 | ✓1 | ✗0] ✓ tests/agent/test_bedrock_stream_completion.py (1✓ 2s, 1.6s)
+[ 66.7% |     4/~6 | ✓3 | ✗0] ✓ tests/agent/test_degenerate_tool_args.py (2✓, 3.1s)
+[100.0% |     6/~6 | ✓5 | ✗0] ✓ tests/agent/test_degenerate_tool_args_native_wires.py (2✓, 8.3s)
+
+=== Summary: 3 files, 5 tests passed, 0 failed, 2 skipped (100% complete) in 8.3s (4 workers) ===
+  Durations cached to test_durations.json (3 files)
+
+=== Per-file subprocess time distribution ===
+  Files:   3
+  Total subprocess CPU-wall: 13.0s  (runner wall: 8.3s, parallelism: 4x)
+  P50: 3.08s  P90: 8.30s  P95: 8.30s  P99: 8.30s  Max: 8.30s
+  <1s: 0 files (0%)  <2s: 1 files (33%)
+  Top 10 slowest:
+      8.30s  tests/agent/test_degenerate_tool_args_native_wires.py
+      3.08s  tests/agent/test_degenerate_tool_args.py
+      1.65s  tests/agent/test_bedrock_stream_completion.py

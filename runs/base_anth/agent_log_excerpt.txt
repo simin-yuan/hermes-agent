@@ -1,0 +1,4 @@
+2026-10-29 10:10:07,344 INFO [local-b513f24f6239cb13968d0e97ec8599fb1201c2151ec059e3869f4e6cc2bab56d] agent.turn_context: conversation turn: session=local-b513f24f6239cb13968d0e97ec8599fb1201c2151ec059e3869f4e6cc2bab56d model=claude-sonnet-4-5 provider=anthropic platform=cli history=0 msg='run echo hi'
+2026-10-29 10:11:07,826 INFO [local-b513f24f6239cb13968d0e97ec8599fb1201c2151ec059e3869f4e6cc2bab56d] agent.conversation_loop: API call #1: model=claude-sonnet-4-5 provider=anthropic in=10 out=5 total=15 latency=60.2s id=msg_3
+2026-10-29 10:11:08,095 INFO [local-b513f24f6239cb13968d0e97ec8599fb1201c2151ec059e3869f4e6cc2bab56d] agent.tool_executor: tool terminal completed (0.24s, 47 chars)
+2026-10-29 10:11:08,154 INFO [local-b513f24f6239cb13968d0e97ec8599fb1201c2151ec059e3869f4e6cc2bab56d] agent.conversation_loop: API call #2: model=claude-sonnet-4-5 provider=anthropic in=10 out=5 total=15 latency=0.0s id=msg_4

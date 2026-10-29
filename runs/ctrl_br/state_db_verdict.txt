@@ -1,0 +1,5 @@
+session=local-b14e472b861a6c model=us.amazon.nova-pro-v1:0 tool_call_count=1 end_reason=cli_close
+  user      tool= finish= args= content='run echo hi'
+  assistant tool= finish=tool_calls args=["{\"command\": \"echo 'a                                                        content=''
+  tool      tool=terminal finish= args= content='{"output": "5003", "exit_code": 0, "error": null}'
+  assistant tool= finish=stop args= content='done: [{"text": "{\\"output\\": \\"5003\\", \\"exit_code\\": 0, \\"error\\": null}"}]'

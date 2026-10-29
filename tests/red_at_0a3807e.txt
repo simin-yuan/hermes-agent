@@ -1,0 +1,43 @@
+[0;32m✓[0m pinned uv found (uv 0.13.5 (x86_64-unknown-linux-gnu))
+[0;32m✓[0m Tools + dependencies installed (hash-verified via pm + uv.lock)
+  (TZ=UTC LANG=C.UTF-8 PYTHONHASHSEED=0; clean env)
+  ╔╍ Failed: tests/agent/test_degenerate_tool_args_native_wires.py ╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍
+  ║ FF                                                                       [100%]
+  ║ =================================== FAILURES ===================================
+  ║ E   AssertionError: assert <MagicMock id='139766953504320'> is <MagicMock id='139766953508352'>
+  ║      +  where <MagicMock id='139766953504320'> = interruptible_streaming_api_call({'model': 'claude-opus-4-7'})
+  ║      +    where interruptible_streaming_api_call = <run_agent.AIAgent object at 0x7f1e0e0e4980>._interruptible_streaming_api_call
+  ║ $REPO/tests/agent/test_degenerate_tool_args_native_wires.py:74: AssertionError: assert <MagicMock id='139766953504320'> is <MagicMock id='139766953508352'>
+  ║ E   TypeError: stream_converse_with_callbacks() got an unexpected keyword argument 'abort_degenerate_args'
+  ║ $REPO/tests/agent/test_degenerate_tool_args_native_wires.py:93: TypeError: stream_converse_with_callbacks() got an unexpected keyword argument 'abort_degenerate_args'
+  ║ =========================== short test summary info ============================
+  ║ FAILED tests/agent/test_degenerate_tool_args_native_wires.py::test_whitespace_runaway_is_cut_on_the_anthropic_and_bedrock_live_streams
+  ║ FAILED tests/agent/test_degenerate_tool_args_native_wires.py::test_large_legitimate_tool_input_and_bedrock_replay_are_untouched
+  ║ 2 failed in 6.36s
+  ║
+  ║  Repro: python -m pytest tests/agent/test_degenerate_tool_args_native_wires.py -q -p no:logging --tb=line
+  ╚╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍╍
+=== Summary: 1 files, 0 tests passed, 2 failed; FAILED: 1 of 1 file (100% complete) in 16.0s (4 workers) ===
+=== Per-file subprocess time distribution ===
+  Files:   1
+  Total subprocess CPU-wall: 15.9s  (runner wall: 16.0s, parallelism: 4x)
+  P50: 15.93s  P90: 15.93s  P95: 15.93s  P99: 15.93s  Max: 15.93s
+  <1s: 0 files (0%)  <2s: 0 files (0%)
+  Top 10 slowest:
+     15.93s  tests/agent/test_degenerate_tool_args_native_wires.py
+=== Failure output ===
+--- tests/agent/test_degenerate_tool_args_native_wires.py ---
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+E   AssertionError: assert <MagicMock id='139766953504320'> is <MagicMock id='139766953508352'>
+     +  where <MagicMock id='139766953504320'> = interruptible_streaming_api_call({'model': 'claude-opus-4-7'})
+     +    where interruptible_streaming_api_call = <run_agent.AIAgent object at 0x7f1e0e0e4980>._interruptible_streaming_api_call
+$REPO/tests/agent/test_degenerate_tool_args_native_wires.py:74: AssertionError: assert <MagicMock id='139766953504320'> is <MagicMock id='139766953508352'>
+E   TypeError: stream_converse_with_callbacks() got an unexpected keyword argument 'abort_degenerate_args'
+$REPO/tests/agent/test_degenerate_tool_args_native_wires.py:93: TypeError: stream_converse_with_callbacks() got an unexpected keyword argument 'abort_degenerate_args'
+=========================== short test summary info ============================
+FAILED tests/agent/test_degenerate_tool_args_native_wires.py::test_whitespace_runaway_is_cut_on_the_anthropic_and_bedrock_live_streams
+FAILED tests/agent/test_degenerate_tool_args_native_wires.py::test_large_legitimate_tool_input_and_bedrock_replay_are_untouched
+2 failed in 6.36s
+=== 1 file with test failures ===
+  tests/agent/test_degenerate_tool_args_native_wires.py  (2 tests failed)

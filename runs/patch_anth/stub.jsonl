@@ -1,0 +1,4 @@
+{"n": 1, "path": "/api/show", "status": 404}
+{"n": 2, "t": 1793271571.9887125, "wire": "anthropic", "kind": "runaway", "tools": true, "tool_result": false, "stream": true, "outcome": "client_closed:BrokenPipeError", "chars_streamed": 4121, "seconds": 10.66}
+{"n": 3, "t": 1793271583.669046, "wire": "anthropic", "kind": "clean_tool", "tools": true, "tool_result": false, "stream": true, "outcome": "completed", "stop": "tool_use", "chars_streamed": 22, "seconds": 0.0}
+{"n": 4, "t": 1793271584.2450871, "wire": "anthropic", "kind": "final_text", "tools": true, "tool_result": true, "stream": true, "tool_result_seen": "{\"output\": \"hi\", \"exit_code\": 0, \"error\": null}", "outcome": "completed", "stop": "end_turn", "chars_streamed": 0, "seconds": 0.0}

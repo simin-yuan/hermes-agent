@@ -1,0 +1,4 @@
+{"n": 1, "path": "/model/us.amazon.nova-pro-v1%3A0/converse", "kind": "aux_nonstream"}
+{"n": 3, "path": "/model/us.amazon.nova-pro-v1%3A0/converse", "kind": "aux_nonstream"}
+{"n": 2, "t": 1793271679.4484847, "wire": "converse", "path": "/model/us.amazon.nova-pro-v1%3A0/converse-stream", "kind": "runaway", "tools": true, "tool_result": false, "outcome": "completed", "stop": "tool_use", "chars_streamed": 5032, "seconds": 13.05}
+{"n": 4, "t": 1793271692.8008728, "wire": "converse", "path": "/model/us.amazon.nova-pro-v1%3A0/converse-stream", "kind": "final_text", "tools": true, "tool_result": true, "tool_result_seen": "[{\"text\": \"{\\\"output\\\": \\\"5003\\\", \\\"exit_code\\\": 0, \\\"error\\\": null}\"}]", "outcome": "completed", "stop": "end_turn", "chars_streamed": 0, "seconds": 0.0}

@@ -1,0 +1,2 @@
+0a3807ec: NO RAISE; events consumed 4005 of 4005 finish length args_len 2
+7fb8fcf1: RAISED DegenerateToolArgumentsError tool-call arguments degenerated into 4096 consecutive whitespace characters consumed 1027

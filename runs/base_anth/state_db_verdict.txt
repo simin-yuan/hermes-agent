@@ -1,0 +1,5 @@
+session=local-b513f24f6239cb model=claude-sonnet-4-5 tool_call_count=1 end_reason=None
+  user      tool= finish= args= content='run echo hi'
+  assistant tool= finish=tool_calls args=["{\"command\": \"echo hi\"}"] content=''
+  tool      tool=terminal finish= args= content='{"output": "hi", "exit_code": 0, "error": null}'
+  assistant tool= finish=stop args= content='done: {"output": "hi", "exit_code": 0, "error": null}'

@@ -1,0 +1,4 @@
+2026-10-29 11:01:19,271 INFO [local-b14e472b861a6c291f80dbd6fa0700b58139942d38db96898fff439e650fae3d] agent.turn_context: conversation turn: session=local-b14e472b861a6c291f80dbd6fa0700b58139942d38db96898fff439e650fae3d model=us.amazon.nova-pro-v1:0 provider=bedrock platform=cli history=0 msg='run echo hi'
+2026-10-29 11:01:32,503 INFO [local-b14e472b861a6c291f80dbd6fa0700b58139942d38db96898fff439e650fae3d] agent.conversation_loop: API call #1: model=us.amazon.nova-pro-v1:0 provider=bedrock in=10 out=5 total=15 latency=13.1s
+2026-10-29 11:01:32,771 INFO [local-b14e472b861a6c291f80dbd6fa0700b58139942d38db96898fff439e650fae3d] agent.tool_executor: tool terminal completed (0.23s, 49 chars)
+2026-10-29 11:01:32,808 INFO [local-b14e472b861a6c291f80dbd6fa0700b58139942d38db96898fff439e650fae3d] agent.conversation_loop: API call #2: model=us.amazon.nova-pro-v1:0 provider=bedrock in=10 out=5 total=15 latency=0.0s

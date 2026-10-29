@@ -1,0 +1,5 @@
+{"n": 1, "path": "/model/us.amazon.nova-pro-v1%3A0/converse", "kind": "aux_nonstream"}
+{"n": 3, "path": "/model/us.amazon.nova-pro-v1%3A0/converse", "kind": "aux_nonstream"}
+{"n": 2, "t": 1793271621.2437718, "wire": "converse", "path": "/model/us.amazon.nova-pro-v1%3A0/converse-stream", "kind": "runaway", "tools": true, "tool_result": false, "outcome": "client_closed:BrokenPipeError", "chars_streamed": 4641, "seconds": 11.97}
+{"n": 4, "t": 1793271635.8298872, "wire": "converse", "path": "/model/us.amazon.nova-pro-v1%3A0/converse-stream", "kind": "clean_tool", "tools": true, "tool_result": false, "outcome": "completed", "stop": "tool_use", "chars_streamed": 22, "seconds": 0.0}
+{"n": 5, "t": 1793271636.047064, "wire": "converse", "path": "/model/us.amazon.nova-pro-v1%3A0/converse-stream", "kind": "final_text", "tools": true, "tool_result": true, "tool_result_seen": "[{\"text\": \"{\\\"output\\\": \\\"hi\\\", \\\"exit_code\\\": 0, \\\"error\\\": null}\"}]", "outcome": "completed", "stop": "end_turn", "chars_streamed": 0, "seconds": 0.0}

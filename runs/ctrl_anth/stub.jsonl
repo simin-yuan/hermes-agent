@@ -1,0 +1,3 @@
+{"n": 1, "path": "/api/show", "status": 404}
+{"n": 2, "t": 1793271656.985181, "wire": "anthropic", "kind": "runaway", "tools": true, "tool_result": false, "stream": true, "outcome": "completed", "stop": "tool_use", "chars_streamed": 5032, "seconds": 13.0}
+{"n": 3, "t": 1793271670.3548625, "wire": "anthropic", "kind": "final_text", "tools": true, "tool_result": true, "stream": true, "tool_result_seen": "{\"output\": \"5003\", \"exit_code\": 0, \"error\": null}", "outcome": "completed", "stop": "end_turn", "chars_streamed": 0, "seconds": 0.0}
