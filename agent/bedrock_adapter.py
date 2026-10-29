@@ -22,6 +22,10 @@ from urllib.parse import urlparse
 import httpx
 
 from agent.errors import EmptyStreamError
+from agent.repetition_guard import ToolArgsWhitespaceWatch
+
+# Replay consumers (Relay's finalizer) re-read frames the live consumer already judged: they never raise.
+_REPLAY_TOOL_INPUT_WATCH = SimpleNamespace(feed=lambda _delta: None)
 
 logger = logging.getLogger(__name__)
 
@@ -1202,12 +1206,14 @@ def normalize_converse_stream_events(event_stream) -> SimpleNamespace:
 
 def stream_converse_with_callbacks(
     event_stream, on_text_delta=None, on_tool_start=None, on_reasoning_delta=None,
-    on_interrupt_check=None, on_event=None, watch_runaway=False,
+    on_interrupt_check=None, on_event=None, watch_runaway=False, abort_degenerate_args=False,
 ) -> SimpleNamespace:
     """boto3 ``converse_stream()`` response + callbacks → the ``normalize_converse_response()`` shape.
     ``on_text_delta`` only fires while no toolUse block has been seen (as on the Anthropic/chat_completions
     paths); ``on_interrupt_check`` True stops streaming; ``on_event`` fires for EVERY event before branching
-    and its exceptions are swallowed so a watchdog hook can never abort the stream.
+    and its exceptions are swallowed so a watchdog hook can never abort the stream. ``abort_degenerate_args``
+    (live consumption only: the Relay finalizer replays the same events and must not raise) raises
+    ``DegenerateToolArgumentsError`` once a toolUse input degenerates into an endless whitespace run.
 
     Blocks are keyed by the ``contentBlockIndex`` Bedrock stamps on every contentBlockStart/Delta/Stop:
     text blocks get NO contentBlockStart, so a counter keyed on starts shredded them (#108200).
@@ -1253,7 +1259,8 @@ def stream_converse_with_callbacks(
             if "toolUse" in start:
                 has_tool_use = True
                 flush_text()
-                current_tool = {"toolUseId": start["toolUse"].get("toolUseId", ""), "name": start["toolUse"].get("name", ""), "input_json": ""}
+                current_tool = {"toolUseId": start["toolUse"].get("toolUseId", ""), "name": start["toolUse"].get("name", ""), "input_json": "",
+                                "ws_watch": ToolArgsWhitespaceWatch() if abort_degenerate_args else _REPLAY_TOOL_INPUT_WATCH}
                 stream_blocks[idx] = _tool_use_block(current_tool["toolUseId"], current_tool["name"], {})
                 if on_tool_start:
                     on_tool_start(current_tool["name"])
@@ -1269,7 +1276,9 @@ def stream_converse_with_callbacks(
                 if on_text_delta and not has_tool_use:
                     on_text_delta(text)
             elif "toolUse" in delta and current_tool is not None:
-                current_tool["input_json"] += delta["toolUse"].get("input", "")
+                tool_input = delta["toolUse"].get("input", "")
+                current_tool["input_json"] += tool_input
+                current_tool["ws_watch"].feed(tool_input)
             elif "reasoningContent" in delta:
                 reasoning = delta["reasoningContent"]
                 if isinstance(reasoning, dict) and (reasoning.get("text", "") or reasoning.get("signature") or _encode_redacted(reasoning.get("redactedContent"))):

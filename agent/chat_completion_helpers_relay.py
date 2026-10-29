@@ -13,6 +13,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from agent.chat_completion_helpers_tool_calls import _ToolCallAccumulator
+from agent.errors import EmptyStreamError
 from agent.message_content import flatten_message_text
 from agent.reasoning_summaries import separate_glued_reasoning_blocks
 
@@ -80,3 +81,13 @@ class RelayChatAccumulator:
         # "stop" also covers Nous Portal ``lastOne`` usage frames, which carry no finish_reason.
         return {"model": self._model, "usage": self._usage,
             "choices": [{"message": message, "finish_reason": self._finish_reason or "stop"}]}
+
+
+def _finalize_bedrock_relay_events(events):
+    """Relay finalizer for Bedrock: a stream without messageStop has no complete
+    response to record, so return None and let the live consumer raise (#109988)."""
+    from agent.bedrock_adapter import stream_converse_with_callbacks
+    try:
+        return stream_converse_with_callbacks({"stream": list(events)})
+    except EmptyStreamError:
+        return None
