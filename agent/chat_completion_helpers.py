@@ -51,7 +51,7 @@ from agent.message_sanitization import (
 from agent.reasoning_summaries import (
     append_streamed_reasoning_detail, separate_glued_reasoning_blocks, streamed_reasoning_detail_text)
 from agent.local_prompt_progress import prompt_progress, with_prompt_progress
-from agent.repetition_guard import RunawayStreamWatch, is_repetition_dominated
+from agent.repetition_guard import RunawayStreamWatch, ToolArgsWhitespaceWatch, is_repetition_dominated
 from agent.stream_single_writer import claim_stream_writer, stream_writer_is_current
 from tools.terminal_tool_lifecycle import is_persistent_env
 from utils import base_url_host_matches, base_url_hostname, env_float, env_int
@@ -2518,16 +2518,6 @@ def _stream_codex_passthrough(agent, api_kwargs: dict, on_first_delta):
         agent._codex_on_first_delta = None
 
 
-def _finalize_bedrock_relay_events(events):
-    """Relay finalizer for Bedrock: a stream without messageStop has no complete
-    response to record, so return None and let the live consumer raise (#109988)."""
-    from agent.bedrock_adapter import stream_converse_with_callbacks
-    try:
-        return stream_converse_with_callbacks({"stream": list(events)})
-    except EmptyStreamError:
-        return None
-
-
 class _BedrockStream:
     """Bedrock Converse streaming: boto3 ``converse_stream()`` on a worker thread
     with real-time delta callbacks, polled by an interrupt / stale-event watchdog
@@ -2588,6 +2578,7 @@ class _BedrockStream:
         try:
             from agent import relay_llm
             from agent.bedrock_adapter import stream_converse_with_callbacks
+            from agent.chat_completion_helpers_relay import _finalize_bedrock_relay_events
             intercepted_events = []
             writer_token = {"value": None}
 
@@ -2621,7 +2612,8 @@ class _BedrockStream:
                     on_text_delta=self._after_first(agent._fire_stream_delta) if agent._has_stream_consumers() else None,
                     on_tool_start=self._after_first(agent._fire_tool_gen_started),
                     on_reasoning_delta=self._after_first(agent._fire_reasoning_delta) if wants_reasoning else None,
-                    on_interrupt_check=lambda: agent._interrupt_requested, on_event=_stamp_event)
+                    on_interrupt_check=lambda: agent._interrupt_requested, on_event=_stamp_event,
+                    abort_degenerate_args=True)
             except EmptyStreamError:
                 # IAM-denied fallback: no stream events, but converse() already completed.
                 if stream.final_response is None:
@@ -3391,6 +3383,7 @@ class _StreamingCall(StreamingWaitMonitor):
         _stream_context = {"manager": None, "stream": None}
         base_final_message = None
         text_watch, thinking_watch = RunawayStreamWatch(), RunawayStreamWatch()
+        args_watch: dict[Any, ToolArgsWhitespaceWatch] = {}  # one per content block index
         runaway = None
 
         from agent import relay_llm
@@ -3442,6 +3435,10 @@ class _StreamingCall(StreamingWaitMonitor):
                 elif event_type == "content_block_delta":
                     delta = getattr(event, "delta", None)
                     delta_type = getattr(delta, "type", None) if delta else None
+                    # Only input_json_delta carries partial_json. Live stream only: Relay's accumulator
+                    # replays observed chunks and must not raise.
+                    args_watch.setdefault(getattr(event, "index", None), ToolArgsWhitespaceWatch()).feed(
+                        getattr(delta, "partial_json", ""))
                     if delta_type == "text_delta":
                         text = getattr(delta, "text", "")
                         if text and not has_tool_use:

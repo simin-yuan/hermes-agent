@@ -95,7 +95,7 @@ def test_bedrock_wire_requires_message_stop(terminal):
 
 def test_explicit_interrupt_keeps_partial_response_contract():
     from agent.bedrock_adapter import stream_converse_with_callbacks
-    from agent.chat_completion_helpers import _finalize_bedrock_relay_events
+    from agent.chat_completion_helpers_relay import _finalize_bedrock_relay_events
 
     interrupted = False
 
