@@ -31,6 +31,11 @@ _BRACKETED_SILENCE_MARKERS = tuple(
 # The persisted user-row kind of a self-injected MessageEvent(internal=True) turn; only these
 # machinery kinds may vanish on a bare silence marker.
 INTERNAL_NOTIFICATION_DISPLAY_KIND = "internal_notification"
+
+# Private markers the gateway stamps on self-injected events that must stay non-internal:
+# authorization and the emergency stop have to apply to them, so ``internal`` cannot be used
+# to tell them apart from a human turn.
+SELF_INJECTED_PROVENANCE = ("_heartbeat_session_id", "_goal_continuation")
 # Async-result cards the in-process TUI persisted: a producer's internal event naming one (with a
 # display_text) persists as that row kind instead of internal_notification.
 PRODUCER_NOTICE_DISPLAY_KINDS = frozenset({"process_complete", "async_delegation_complete"})
@@ -175,8 +180,9 @@ def display_kind_for_event(event: Any) -> str | None:
     """The persisted user-row kind for a gateway turn: only self-injected events are machinery.
 
     A scheduled heartbeat prompt is self-injected too (``_heartbeat_session_id`` is stamped only
-    by the gateway poller, never inferred from inbound text), but it deliberately stays
-    non-internal so authorization and the emergency stop still apply to it.
+    by the gateway poller, never inferred from inbound text), as is a /goal continuation enqueued
+    through the adapter FIFO (``_goal_continuation``). Both deliberately stay non-internal so
+    authorization and the emergency stop still apply to them.
     """
     from gateway.session_display import admission_display
     if kind := admission_display(event).get("kind"):
@@ -184,7 +190,9 @@ def display_kind_for_event(event: Any) -> str | None:
         return kind
     if getattr(event, "internal", False) and _producer_card(event):
         return event.metadata["display_kind"]
-    if getattr(event, "internal", False) or getattr(event, "_heartbeat_session_id", None):
+    if getattr(event, "internal", False) or any(
+        getattr(event, attr, None) for attr in SELF_INJECTED_PROVENANCE
+    ):
         return INTERNAL_NOTIFICATION_DISPLAY_KIND
     return None
 

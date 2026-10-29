@@ -351,7 +351,11 @@ class GatewayGoalsMixin:
             adapter = self._delivery_adapter_for(source)
             _quick_key = self._session_key_for_source(source)
             if adapter and _quick_key:
-                self._enqueue_fifo(_quick_key, self._synthetic_prompt_event(source, prompt), adapter)
+                # Stamp provenance, not internal: a continuation must stay subject to
+                # authorization and the emergency stop, exactly like a heartbeat prompt.
+                event = self._synthetic_prompt_event(source, prompt)
+                event._goal_continuation = True
+                self._enqueue_fifo(_quick_key, event, adapter)
         except Exception as exc:
             logger.debug("goal continuation: enqueue failed: %s", exc)
 
