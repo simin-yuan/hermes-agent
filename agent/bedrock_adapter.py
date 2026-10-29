@@ -24,6 +24,9 @@ import httpx
 from agent.errors import EmptyStreamError
 from agent.repetition_guard import ToolArgsWhitespaceWatch
 
+# Replay consumers (Relay's finalizer) re-read frames the live consumer already judged: they never raise.
+_REPLAY_TOOL_INPUT_WATCH = SimpleNamespace(feed=lambda _delta: None)
+
 logger = logging.getLogger(__name__)
 
 _bedrock_runtime_client_cache: dict[str, Any] = {}
@@ -1163,7 +1166,8 @@ def stream_converse_with_callbacks(
             if "toolUse" in start:
                 has_tool_use = True
                 flush_text()
-                current_tool = {"toolUseId": start["toolUse"].get("toolUseId", ""), "name": start["toolUse"].get("name", ""), "input_json": ""}
+                current_tool = {"toolUseId": start["toolUse"].get("toolUseId", ""), "name": start["toolUse"].get("name", ""), "input_json": "",
+                                "ws_watch": ToolArgsWhitespaceWatch() if abort_degenerate_args else _REPLAY_TOOL_INPUT_WATCH}
                 stream_blocks[idx] = _tool_use_block(current_tool["toolUseId"], current_tool["name"], {})
                 if on_tool_start:
                     on_tool_start(current_tool["name"])
@@ -1181,8 +1185,7 @@ def stream_converse_with_callbacks(
             elif "toolUse" in delta and current_tool is not None:
                 tool_input = delta["toolUse"].get("input", "")
                 current_tool["input_json"] += tool_input
-                if abort_degenerate_args:
-                    current_tool.setdefault("ws_watch", ToolArgsWhitespaceWatch()).feed(tool_input)
+                current_tool["ws_watch"].feed(tool_input)
             elif "reasoningContent" in delta:
                 reasoning = delta["reasoningContent"]
                 if isinstance(reasoning, dict) and (reasoning.get("text", "") or reasoning.get("signature") or _encode_redacted(reasoning.get("redactedContent"))):
