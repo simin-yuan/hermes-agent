@@ -197,9 +197,60 @@ def _whoami_sid() -> str:
     return sid
 
 
+@functools.lru_cache(maxsize=1)
+def _whoami_account() -> str:
+    whoami = subprocess.run(["whoami"], capture_output=True, text=True, check=True,
+                            encoding="utf-8", errors="replace", timeout=30)
+    account = whoami.stdout.strip()
+    if "\\" not in account:
+        raise OSError(f"could not resolve the current user account from whoami: {account!r}")
+    return account
+
+
+def _icacls_already_granted(path: Path, is_dir: bool) -> bool:
+    """True when the token's user already holds the needed full-control ACE on *path* itself.
+
+    ``icacls <path> /L`` is a read: unlike the grant below it opens nothing for writing, so a link
+    swapped in after the caller's lstat checks cannot redirect it. That makes it the only safe
+    pre-check for the fallback (#154582): a tree that already carries ``(OI)(CI)(F)`` for the user
+    has nothing to grant, so a repeat elevated run must not refuse or warn.
+    """
+    try:
+        listing = subprocess.run(["icacls", str(path), "/L"], capture_output=True, text=True,
+                                 check=False, encoding="utf-8", errors="replace", timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if listing.returncode != 0:
+        return False
+    try:
+        account = _whoami_account().upper()
+    except OSError:
+        return False
+    needed = ("(F)", "(OI)", "(CI)") if is_dir else ("(F)",)
+    needle = account + ":"
+    for line in listing.stdout.splitlines():
+        # The first ACE shares its line with the path ("C:\dir DOMAIN\user:..."), so locate the
+        # account marker instead of splitting the line on ":".
+        start = line.upper().find(needle)
+        if start == -1:
+            continue
+        rights = line[start + len(needle):].strip().upper()
+        if not rights.startswith("("):
+            continue
+        if "(DENY)" in rights or "(IO)" in rights:
+            continue  # an explicit deny, or inherit-only (does not apply to the object itself)
+        if all(token in rights for token in needed):
+            return True
+    return False
+
+
 def _grant_with_icacls(path: Path, is_dir: bool, expected: str | None = None,
                        subtree_has_link: bool | None = None) -> None:
     """*subtree_has_link*: the caller's own walk already answered it (None: walk here)."""
+    if _icacls_already_granted(path, is_dir):
+        # A repeat elevated run over a tree that already carries the user's inheriting full-control
+        # ACE has nothing to grant, so it must not refuse or warn (#154582).
+        return
     if expected is None:
         # icacls opens by name, so nothing pins the object between the checks and the write. Inside
         # the home the components were lstat-checked against a known root; with no expected root

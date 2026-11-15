@@ -338,3 +338,41 @@ def test_elevated_grants_never_reach_a_junction_target_outside_the_home(home_wit
     home_acl = subprocess.run(["icacls", str(home / "cache")], capture_output=True, text=True, check=True).stdout
     user = subprocess.run(["whoami"], capture_output=True, text=True, check=True).stdout.strip()
     assert sid in home_acl or user.lower() in home_acl.lower(), home_acl
+
+
+
+# --- #154582: the icacls fallback must not re-grant a tree that already carries the ACE ---
+
+
+def _grant_user_ace(path):
+    import hermes_dir_acl
+
+    subprocess.run(
+        ["icacls", str(path), "/grant", f"*{hermes_dir_acl._whoami_sid()}:(OI)(CI)F", "/Q", "/L"],
+        capture_output=True, check=True, timeout=60,
+    )
+
+
+def test_icacls_fallback_returns_silently_when_the_user_ace_is_already_present(tmp_path):
+    import hermes_dir_acl
+
+    target = tmp_path / "already-granted"
+    target.mkdir()
+    _grant_user_ace(target)
+
+    assert hermes_dir_acl._icacls_already_granted(target, True) is True
+    hermes_dir_acl._grant_with_icacls(target, True, expected=None)  # must not raise ReparsePointRefused
+
+
+def test_icacls_fallback_still_refuses_when_the_user_ace_is_absent(tmp_path):
+    import hermes_dir_acl
+
+    target = tmp_path / "ungranted"
+    target.mkdir()
+    subprocess.run(["icacls", str(target), "/inheritance:r", "/Q"], capture_output=True, check=True, timeout=60)
+    try:
+        assert hermes_dir_acl._icacls_already_granted(target, True) is False
+        with pytest.raises(hermes_dir_acl.ReparsePointRefused, match="has no trusted root"):
+            hermes_dir_acl._grant_with_icacls(target, True, expected=None)
+    finally:
+        _grant_user_ace(target)  # leave the pytest root deletable
