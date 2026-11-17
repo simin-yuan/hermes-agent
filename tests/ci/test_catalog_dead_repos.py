@@ -51,3 +51,22 @@ def test_only_deleted_repos_and_vanished_pins_are_delisted(tmp_path):
 def test_an_unclear_lookup_delists_nothing(tmp_path):
     with pytest.raises(dead_repos.LookupFailed):
         dead_repos.find_dead(dead_repos.load_entries(_catalog(tmp_path)), _fetch([{"type": "RATE_LIMITED"}]))
+
+
+def test_an_error_naming_one_entry_keeps_it_and_delists_the_rest(tmp_path):
+    # An organization IP allow list answering for one repo of the batch, as in run 43818694414.
+    blocked = {
+        "type": "FORBIDDEN",
+        "path": ["r1"],  # catalog order is sorted: force-pushed, gone, live, old-name
+        "extensions": {"ip_allow_list_failure": True},
+        "message": "Although you appear to have the correct authorization credentials, the `o` "
+                   "organization has an IP allow list enabled, and your IP address is not permitted "
+                   "to access this resource.",
+    }
+    unchecked: list[str] = []
+    dead = dead_repos.find_dead(dead_repos.load_entries(_catalog(tmp_path)), _fetch([blocked]),
+                                unchecked=unchecked)
+    # `gone` is the entry the error is about: kept, never delisted on an unreadable answer.
+    assert {(d.entry.path.stem, d.reason) for d in dead} == {("force-pushed", dead_repos.PIN_GONE)}
+    assert len(unchecked) == 1
+    assert unchecked[0].startswith("gone: not checked (")

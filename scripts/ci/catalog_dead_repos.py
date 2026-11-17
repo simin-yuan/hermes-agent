@@ -8,9 +8,12 @@ per plugin-catalog/README.md; never ``removed.yaml``, which is the security bloc
 Only a definitive answer counts. GitHub repos are looked up in GraphQL batches, and a miss is
 confirmed over REST, which follows rename and transfer redirects, so a moved repo is never listed.
 Other hosts are probed with ``git ls-remote`` and only a clean "not found" counts; their pins are
-not checked. Any lookup that does not answer cleanly (timeout, 5xx, rate limit) aborts the run with
+not checked. A lookup that does not answer cleanly (timeout, 5xx, rate limit) aborts the run with
 nothing delisted, and so does a run that finds more than ``--max-dead`` entries: that shape is an
-outage or a token problem, not one week of deleted repos.
+outage or a token problem, not one week of deleted repos. The one exception is an error that names
+a single entry -- an organization's IP allow list refusing the runner, say -- because that is an
+answer about that entry alone: it is kept and printed as not checked, and the rest of the batch is
+still delisted.
 
     catalog_dead_repos.py [--catalog plugin-catalog] [--max-dead 25] [--delete] [--report out.md]
 
@@ -66,6 +69,17 @@ class LookupFailed(Exception):
     """No definitive answer; the run must not delist anything."""
 
 
+_ALIAS = re.compile(r"r(\d+)\Z")
+
+
+def _alias_index(err: dict) -> int | None:
+    """The batch alias an error is about (``r4`` in ``path``), or None if it names no single entry."""
+    for part in err.get("path") or []:
+        if (m := _ALIAS.fullmatch(str(part))) is not None:
+            return int(m.group(1))
+    return None
+
+
 def load_entries(catalog: Path) -> list[Entry]:
     yaml = YAML(typ="safe", pure=True)
     out = []
@@ -106,16 +120,36 @@ def _confirm_missing(entry: Entry, owner: str, name: str, fetch: Fetch) -> Dead 
     return Dead(entry, PIN_GONE) if status in (404, 422) else None
 
 
-def check_github(batch: list[tuple[Entry, str, str]], fetch: Fetch) -> list[Dead]:
+def check_github(batch: list[tuple[Entry, str, str]], fetch: Fetch,
+                 unchecked: list[str] | None = None) -> list[Dead]:
     fields = " ".join(f"r{i}: repository(owner: {json.dumps(o)}, name: {json.dumps(n)}) "
                       f"{{ object(oid: {json.dumps(e.sha)}) {{ oid }} }}" for i, (e, o, n) in enumerate(batch))
     _, resp = fetch("POST", f"{API}/graphql", {"query": f"query {{ {fields} }}"})
     errors = resp.get("errors") or []
-    if "data" not in resp or any(err.get("type") != "NOT_FOUND" for err in errors):
+    if "data" not in resp:
         raise LookupFailed(f"graphql: {errors[:1] or resp}")
+    # An error that names one alias is an answer about that entry only: an organization's IP allow
+    # list refuses the runner while every other repo in the batch answers normally. Keep that entry
+    # and say so; an error with no alias, or one that points outside the batch, still aborts the run.
+    skipped: dict[int, str] = {}
+    fatal: list[dict] = []
+    for err in errors:
+        if err.get("type") == "NOT_FOUND":
+            continue
+        index = _alias_index(err)
+        if index is None or index >= len(batch):
+            fatal.append(err)
+        else:
+            skipped.setdefault(index, str(err.get("message") or err.get("type")))
+    if fatal:
+        raise LookupFailed(f"graphql: {fatal[:1]}")
     data = resp["data"] or {}
     dead = []
     for i, (entry, owner, name) in enumerate(batch):
+        if i in skipped:
+            if unchecked is not None:
+                unchecked.append(f"{entry.path.stem}: not checked ({skipped[i]}) -- {entry.repo}")
+            continue
         node = data.get(f"r{i}")
         if node is None:
             hit = _confirm_missing(entry, owner, name, fetch)
@@ -138,11 +172,12 @@ def check_other_host(entry: Entry) -> Dead | None:
 
 
 def find_dead(entries: list[Entry], fetch: Fetch,
-              other_host: Callable[[Entry], Dead | None] = check_other_host) -> list[Dead]:
+              other_host: Callable[[Entry], Dead | None] = check_other_host,
+              unchecked: list[str] | None = None) -> list[Dead]:
     github = [(e, m.group(1), m.group(2)) for e in entries if (m := _GITHUB.match(e.repo))]
     dead = []
     for i in range(0, len(github), BATCH):
-        dead += check_github(github[i:i + BATCH], fetch)
+        dead += check_github(github[i:i + BATCH], fetch, unchecked)
     dead += [d for e in entries if not _GITHUB.match(e.repo) and (d := other_host(e))]
     return dead
 
@@ -169,8 +204,9 @@ def main(argv: list[str] | None = None) -> int:
         print("::error::GH_TOKEN is required", file=sys.stderr)
         return 2
     entries = load_entries(args.catalog)
+    unchecked: list[str] = []
     try:
-        dead = find_dead(entries, github_fetch(token))
+        dead = find_dead(entries, github_fetch(token), unchecked=unchecked)
     except LookupFailed as e:
         print(f"::error::a lookup did not answer, delisting nothing: {e}", file=sys.stderr)
         return 1
@@ -178,6 +214,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"::error::{len(dead)} entries look dead (cap {args.max_dead}); refusing, likely an outage",
               file=sys.stderr)
         return 1
+    for line in unchecked:
+        print(f"::warning::{line}", file=sys.stderr)
     for d in dead:
         print(f"{d.entry.path.stem}: {d.reason} ({d.entry.repo})")
         if args.delete:
